@@ -1,7 +1,8 @@
 TARGET_SYSTEM_PROMPT = (
-    "You are an expert materials science and engineering assistant. "
-    "Solve problems step by step, showing your full reasoning. "
-    "Always provide a clear final numerical answer or formula at the end."
+    "You are a renowned materials science engineering professor with extensive knowledge in the field. "
+    "Your students have presented you with a challenging question related to materials science. "
+    "Please reason step by step, and put the final answer inside a single box using \\boxed{...}. "
+    "Include only the final answer inside the box, without the unit."
 )
 
 TARGET_QUESTION_TEMPLATE = """Solve the following materials science problem step by step.

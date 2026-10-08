@@ -43,16 +43,16 @@ JUDGE_MODEL = {
 }
 
 TARGET_MODELS = [
-    {
-        "provider": "fireworks",
-        "model_id": "accounts/fireworks/models/gpt-oss-120b",
-        "display_name": "GPT-OSS-120B",
-    },
     # {
-    #     "provider": "openrouter",
-    #     "model_id": "meta-llama/llama-3.1-8b-instruct",
-    #     "display_name": "Llama-3.1-8B",
+    #     "provider": "fireworks",
+    #     "model_id": "accounts/fireworks/models/gpt-oss-120b",
+    #     "display_name": "GPT-OSS-120B",
     # },
+    {
+        "provider": "openrouter",
+        "model_id": "deepseek/deepseek-r1",
+        "display_name": "DeepSeek-R1",
+    },
     # {
     #     "provider": "openrouter",
     #     "model_id": "deepseek/deepseek-chat",
@@ -66,7 +66,7 @@ JUDGE_TEMPERATURE = 0.0
 
 ATTACKER_TEMPERATURE = 0.7
 
-TARGET_MAX_TOKENS = 4096
+TARGET_MAX_TOKENS = 16384
 JUDGE_MAX_TOKENS = 1024
 ATTACKER_MAX_TOKENS = 512
 ANSWER_TOLERANCE = 0.05

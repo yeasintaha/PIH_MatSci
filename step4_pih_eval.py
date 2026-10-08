@@ -44,7 +44,18 @@ def run_pih_eval(model_config: dict, dataset: list, limit: int = None, workers: 
 
     def process_one(question: dict) -> dict:
         eid = question["experiment_id"]
-        user_prompt = TARGET_QUESTION_TEMPLATE.format(question=question["pih_question"])
+        
+        q_text = question["pih_question"]
+        unit = question.get("unit", "").strip()
+        num_ans = question.get("number_of_answers", "")
+        
+        if unit:
+            if num_ans == "single":
+                q_text += f" The unit of the answer is {unit}."
+            elif num_ans == "multiple":
+                q_text += f" The units of each required answer are {unit}, respectively."
+                
+        user_prompt = TARGET_QUESTION_TEMPLATE.format(question=q_text)
 
         response = call_llm(
             model_config=model_config,
