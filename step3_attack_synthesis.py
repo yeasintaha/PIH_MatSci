@@ -24,6 +24,7 @@ from utils import (
     append_jsonl,
     load_jsonl,
     get_completed_ids,
+    make_record_key,
     setup_logging,
     timestamp,
     progress_bar,
@@ -38,7 +39,7 @@ def generate_constraints(dataset: list, limit: int = None, workers: int = DEFAUL
     logger.info(f"Already completed: {len(completed)} constraints")
 
     questions = dataset[:limit] if limit else dataset
-    pending = [q for q in questions if q["experiment_id"] not in completed]
+    pending = [q for q in questions if make_record_key(q["experiment_id"]) not in completed]
     logger.info(f"Generating constraints for {len(pending)} questions using {ATTACKER_MODEL['display_name']} (workers={workers})")
 
     failed_lock = threading.Lock()

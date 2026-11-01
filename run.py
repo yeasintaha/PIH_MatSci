@@ -118,10 +118,10 @@ Steps:
 
     if args.step == "step3" or args.step == "all":
         print("\n" + "=" * 60)
-        print("STEP 3: Attack Synthesis")
+        print("STEP 3: Taxonomy Attack Synthesis (Decompose -> Perturb -> Recompute)")
         print("=" * 60)
-        sys.argv = ["step3_attack_synthesis.py"] + step_args
-        from step3_attack_synthesis import main as step3_main
+        sys.argv = ["step3_taxonomy_synthesis.py"] + step_args
+        from step3_taxonomy_synthesis import main as step3_main
         step3_main()
 
     if args.step == "step4" or args.step == "all":

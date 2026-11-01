@@ -230,7 +230,10 @@ def parse_answer_span_values(value: Any) -> list[float] | None:
     return None
 
 
-def compare_values(model_values: list[float], reference_values: list[float]) -> list[str]:
+DEFAULT_REL_TOL = 5e-2  # MatSciBench official tolerance; PIH passes config.ANSWER_TOLERANCE explicitly.
+
+
+def compare_values(model_values: list[float], reference_values: list[float], rel_tol: float = DEFAULT_REL_TOL) -> list[str]:
     mismatches = []
     for index, (model_value, reference_value) in enumerate(zip(model_values, reference_values), start=1):
         if reference_value == 0:
@@ -241,22 +244,22 @@ def compare_values(model_values: list[float], reference_values: list[float]) -> 
             mismatches.append(f"#{index}: sign mismatch {model_value} != {reference_value}")
             continue
         relative_error = abs(model_value - reference_value) / abs(reference_value)
-        if relative_error > 5e-2:
+        if relative_error > rel_tol:
             mismatches.append(f"#{index}: {model_value} != {reference_value} (relative error {relative_error:.4g})")
     return mismatches
 
 
-def judge_exact_expression_answer(final_answer: Any, correct_answer: Any) -> dict[str, Any] | None:
+def judge_exact_expression_answer(final_answer: Any, correct_answer: Any, rel_tol: float = DEFAULT_REL_TOL) -> dict[str, Any] | None:
     model_answer = as_text(final_answer).strip()
     reference_answer = as_text(correct_answer).strip()
     if not (has_exact_expression(model_answer) or has_exact_expression(reference_answer)):
         return None
     try:
-        if math_equal(model_answer, reference_answer, include_percentage=False, timeout=True):
+        if math_equal(model_answer, reference_answer, include_percentage=False, timeout=True, rel_tol=rel_tol):
             return {
                 "is_correct": True,
                 "judge_reasoning": (
-                    "Rule judge for NUM with exact-expression support and 5% relative tolerance: "
+                    f"Rule judge for NUM with exact-expression support and {rel_tol:.0%} relative tolerance: "
                     f"{model_answer!r} matches {reference_answer!r}."
                 ),
             }
@@ -273,19 +276,19 @@ def judge_exact_expression_answer(final_answer: Any, correct_answer: Any) -> dic
     reference_values = parse_expression_values(reference_answer)
     if model_values is None or reference_values is None or len(model_values) != len(reference_values):
         return None
-    mismatches = compare_values(model_values, reference_values)
+    mismatches = compare_values(model_values, reference_values, rel_tol=rel_tol)
     if mismatches:
         return None
     return {
         "is_correct": True,
         "judge_reasoning": (
-            "Rule judge for NUM with exact-expression support and 5% relative tolerance: "
+            f"Rule judge for NUM with exact-expression support and {rel_tol:.0%} relative tolerance: "
             f"parsed model={model_values}, reference={reference_values}; all values match."
         ),
     }
 
 
-def judge_candidate_span_answer(final_answer: Any, correct_answer: Any) -> dict[str, Any] | None:
+def judge_candidate_span_answer(final_answer: Any, correct_answer: Any, rel_tol: float = DEFAULT_REL_TOL) -> dict[str, Any] | None:
     reference_values = parse_answer_span_values(correct_answer)
     if reference_values is None:
         return None
@@ -293,20 +296,21 @@ def judge_candidate_span_answer(final_answer: Any, correct_answer: Any) -> dict[
         model_values = parse_answer_span_values(span)
         if model_values is None or len(model_values) != len(reference_values):
             continue
-        mismatches = compare_values(model_values, reference_values)
+        mismatches = compare_values(model_values, reference_values, rel_tol=rel_tol)
         if not mismatches:
             return {
                 "is_correct": True,
                 "judge_reasoning": (
-                    "Rule judge for NUM with leading/boxed answer extraction and 5% relative tolerance: "
+                    f"Rule judge for NUM with leading/boxed answer extraction and {rel_tol:.0%} relative tolerance: "
                     f"candidate={span!r}, parsed model={model_values}, reference={reference_values}; all values match."
                 ),
             }
     return None
 
 
-def judge_num_answer(final_answer: Any, correct_answer: Any, multiple: bool) -> dict[str, Any]:
+def judge_num_answer(final_answer: Any, correct_answer: Any, multiple: bool, rel_tol: float = DEFAULT_REL_TOL) -> dict[str, Any]:
     _ = multiple
+    tol_label = f"{rel_tol:.0%}"
     model_answer = as_text(final_answer).strip()
     reference_answer = as_text(correct_answer).strip()
     if not model_answer:
@@ -314,11 +318,11 @@ def judge_num_answer(final_answer: Any, correct_answer: Any, multiple: bool) -> 
     if not reference_answer:
         return {"is_correct": False, "judge_reasoning": "Correct answer is empty in remote benchmark."}
 
-    exact_judgment = judge_exact_expression_answer(model_answer, reference_answer)
+    exact_judgment = judge_exact_expression_answer(model_answer, reference_answer, rel_tol=rel_tol)
     if exact_judgment is not None and exact_judgment["is_correct"]:
         return exact_judgment
 
-    candidate_judgment = judge_candidate_span_answer(model_answer, reference_answer)
+    candidate_judgment = judge_candidate_span_answer(model_answer, reference_answer, rel_tol=rel_tol)
     if candidate_judgment is not None and candidate_judgment["is_correct"]:
         return candidate_judgment
 
@@ -327,35 +331,35 @@ def judge_num_answer(final_answer: Any, correct_answer: Any, multiple: bool) -> 
     if not model_values:
         return {
             "is_correct": False,
-            "judge_reasoning": f"Rule judge for NUM with 5% relative tolerance: no numeric model answer parsed from {model_answer!r}.",
+            "judge_reasoning": f"Rule judge for NUM with {tol_label} relative tolerance: no numeric model answer parsed from {model_answer!r}.",
         }
     if not reference_values:
         return {
             "is_correct": False,
-            "judge_reasoning": f"Rule judge for NUM with 5% relative tolerance: no numeric reference answer parsed from {reference_answer!r}.",
+            "judge_reasoning": f"Rule judge for NUM with {tol_label} relative tolerance: no numeric reference answer parsed from {reference_answer!r}.",
         }
     if len(model_values) != len(reference_values):
         return {
             "is_correct": False,
             "judge_reasoning": (
-                "Rule judge for NUM with 5% relative tolerance: "
+                f"Rule judge for NUM with {tol_label} relative tolerance: "
                 f"number of parsed values differs. Model={model_values}, reference={reference_values}."
             ),
         }
 
-    mismatches = compare_values(model_values, reference_values)
+    mismatches = compare_values(model_values, reference_values, rel_tol=rel_tol)
     if mismatches:
         return {
             "is_correct": False,
             "judge_reasoning": (
-                "Rule judge for NUM with 5% relative tolerance: "
+                f"Rule judge for NUM with {tol_label} relative tolerance: "
                 f"parsed model={model_values}, reference={reference_values}; mismatches: {', '.join(mismatches)}"
             ),
         }
     return {
         "is_correct": True,
         "judge_reasoning": (
-            "Rule judge for NUM with 5% relative tolerance: "
+            f"Rule judge for NUM with {tol_label} relative tolerance: "
             f"parsed model={model_values}, reference={reference_values}; all values match."
         ),
     }

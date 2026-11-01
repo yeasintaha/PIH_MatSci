@@ -89,6 +89,7 @@ def math_equal(
     include_percentage: bool = True,
     is_close: bool = True,
     timeout: bool = False,
+    rel_tol: float = 5e-2,
 ) -> bool:
     """
     Exact match of math if and only if:
@@ -124,7 +125,7 @@ def math_equal(
             for item in gt_result:
                 try:
                     if is_close:
-                        if numeric_equal(prediction, item):
+                        if numeric_equal(prediction, item, rel_tol=rel_tol):
                             return True
                     else:
                         if item == prediction:
@@ -146,7 +147,7 @@ def math_equal(
         lhs, rhs = (prediction, reference) if prediction.count("=") == 1 else (reference, prediction)
         var, expr = lhs.split("=", 1)
         # recurse without the "variable =" part
-        if math_equal(expr.strip(), rhs.strip(), include_percentage, is_close):
+        if math_equal(expr.strip(), rhs.strip(), include_percentage, is_close, rel_tol=rel_tol):
             return True
         
     reference = str(reference).strip()
@@ -186,7 +187,7 @@ def math_equal(
             if all(
                 [
                     math_equal(
-                        pred_parts[i], ref_parts[i], include_percentage, is_close
+                        pred_parts[i], ref_parts[i], include_percentage, is_close, rel_tol=rel_tol
                     )
                     for i in range(len(pred_parts))
                 ]
@@ -236,6 +237,7 @@ def math_equal(
                                 ref_parts[i],
                                 include_percentage,
                                 is_close,
+                                rel_tol=rel_tol,
                             )
                             for i in range(len(pred_parts))
                         ]
@@ -264,7 +266,7 @@ def math_equal(
         and "=" not in reference
     ):
         if math_equal(
-            prediction.split("=")[1], reference, include_percentage, is_close
+            prediction.split("=")[1], reference, include_percentage, is_close, rel_tol=rel_tol
         ):
             return True
     elif (
@@ -273,16 +275,16 @@ def math_equal(
         and "=" not in prediction
     ):
         if math_equal(
-            prediction, reference.split("=")[1], include_percentage, is_close
+            prediction, reference.split("=")[1], include_percentage, is_close, rel_tol=rel_tol
         ):
             return True
 
     # symbolic equal with sympy
     if timeout:
-        if call_with_timeout(symbolic_equal_process, prediction, reference):
+        if call_with_timeout(symbolic_equal_process, prediction, reference, rel_tol=rel_tol):
             return True
     else:
-        if symbolic_equal(prediction, reference):
+        if symbolic_equal(prediction, reference, rel_tol=rel_tol):
             return True
 
     return False
@@ -292,17 +294,18 @@ def math_equal_process(param):
     return math_equal(param[-2], param[-1])
 
 
-def numeric_equal(prediction: float, reference: float):
+def numeric_equal(prediction: float, reference: float, rel_tol: float = 5e-2):
     # Note that relative tolerance has significant impact
     # on the result of the synthesized GSM-Hard dataset
     # if reference.is_integer():
     #     return isclose(reference, round(prediction), abs_tol=1e-4)
     # else:
     # prediction = round(prediction, len(str(reference).split(".")[-1]))
-    return isclose(reference, prediction, rel_tol=5e-2)
+    # PIH: rel_tol defaults to MatSciBench's official 5%; PIH grading passes config.ANSWER_TOLERANCE.
+    return isclose(reference, prediction, rel_tol=rel_tol)
 
 
-def symbolic_equal(a, b):
+def symbolic_equal(a, b, rel_tol: float = 5e-2):
     def _parse(s):
         for f in [parse_latex, parse_expr, latex2sympy]:
             try:
@@ -339,7 +342,7 @@ def symbolic_equal(a, b):
         pass
 
     try:
-        if numeric_equal(float(N(a)), float(N(b))):
+        if numeric_equal(float(N(a)), float(N(b)), rel_tol=rel_tol):
             return True
     except:
         pass
@@ -358,8 +361,8 @@ def symbolic_equal(a, b):
     return False
 
 
-def symbolic_equal_process(a, b, output_queue):
-    result = symbolic_equal(a, b)
+def symbolic_equal_process(a, b, output_queue, rel_tol: float = 5e-2):
+    result = symbolic_equal(a, b, rel_tol=rel_tol)
     output_queue.put(result)
 
 
